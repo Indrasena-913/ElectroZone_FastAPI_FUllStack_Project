@@ -68,12 +68,20 @@ async def update_cart_quantity(db:db_dependency,userdata:user_dependency,product
     cartItem=db.query(CartItem).filter(CartItem.cart_id==cart.id,CartItem.product_id==product.id).first()
 
     if cartItem:
-        cartItem.quantity-=1
-        db.add(cartItem)
-        db.commit()
-        db.refresh(cartItem)
+        if cartItem.quantity<1:
+            db.delete(cartItem)
+            db.commit()
+            db.refresh(cartItem)
+        else:
+            cartItem.quantity-=1
+            db.add(cartItem)
+            db.commit()
+            db.refresh(cartItem)
     else:
         raise HTTPException(status_code=400,detail="Product not found in cartItem")
     return {
         "product updated successfully":cartItem
     }
+
+
+
