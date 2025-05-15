@@ -11,6 +11,7 @@ class LoginUserStruct(BaseModel):
     email:str
     password:str
 
-
+class QuantityUpdate(BaseModel):
+    quantity: int
 
 
