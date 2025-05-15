@@ -51,37 +51,99 @@ async def add_to_cart(db:db_dependency,userdata:user_dependency,product_id:int= 
 
             }}
 
+@router.put("/cart/updatequantity/{product_id}", status_code=status.HTTP_200_OK)
+async def update_cart_quantity(db: db_dependency,userdata: user_dependency,product_id: int = Path(gt=0)):
+    user_id = userdata["id"]
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized error")
 
-@router.put("/cart/updatequantity/{product_id}",status_code=status.HTTP_201_CREATED)
-async def update_cart_quantity(db:db_dependency,userdata:user_dependency,product_id:int= Path(gt=0)):
-    userId=userdata["id"]
-    if not userId:
-        raise HTTPException(status_code=401,detail="Unauthorized error")
-    cart=db.query(Cart).filter(Cart.user_id==userId).first()
+    cart = db.query(Cart).filter(Cart.user_id == user_id).first()
     if not cart:
-        raise HTTPException(status_code=400,detail="No cart found with user details")
+        raise HTTPException(status_code=400, detail="No cart found for this user")
 
-    product=db.query(Product).filter(Product.id==product_id).first()
+    product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
-        raise HTTPException(status_code=404,detail="Product not found")
-    
-    cartItem=db.query(CartItem).filter(CartItem.cart_id==cart.id,CartItem.product_id==product.id).first()
+        raise HTTPException(status_code=404, detail="Product not found")
 
-    if cartItem:
-        if cartItem.quantity<1:
-            db.delete(cartItem)
-            db.commit()
-            db.refresh(cartItem)
-        else:
-            cartItem.quantity-=1
-            db.add(cartItem)
-            db.commit()
-            db.refresh(cartItem)
+    cart_item = db.query(CartItem).filter(
+        CartItem.cart_id == cart.id,
+        CartItem.product_id == product.id
+    ).first()
+
+    if not cart_item:
+        raise HTTPException(status_code=404, detail="Product not found in cart")
+
+    if cart_item.quantity <= 1:
+        db.delete(cart_item)
+        db.commit()
+        return {"message": "Product removed from cart"}
     else:
-        raise HTTPException(status_code=400,detail="Product not found in cartItem")
+        cart_item.quantity -= 1
+        db.commit()
+        db.refresh(cart_item)
+        return {
+            "message": "Product quantity updated",
+            "cart_item": {
+                "product_id": product.id,
+                "product_title": product.title,
+                "product_image":product.image,
+                "quantity": cart_item.quantity,
+                "total_price": product.price * cart_item.quantity
+            }
+        }
+
+
+
+@router.get("/cart", status_code=status.HTTP_200_OK)
+async def get_user_cart(db: db_dependency,userdata: user_dependency):
+    user_id = userdata["id"]
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized error")
+
+    cart = db.query(Cart).filter(Cart.user_id == user_id).first()
+    if not cart:
+        raise HTTPException(status_code=404, detail="Cart not found")
+
+    cart_items = db.query(CartItem).filter(CartItem.cart_id == cart.id).all()
+
+    if not cart_items:
+        return {"message": "Cart is empty"}
+
+    response = []
+    for item in cart_items:
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        response.append({
+            "product_id": product.id,
+            "title": product.title,
+            "image": product.image,
+            "price_per_unit": product.price,
+            "quantity": item.quantity,
+            "total_price": product.price * item.quantity
+        })
+
     return {
-        "product updated successfully":cartItem
+        "cart_id": cart.id,
+        "total_items": len(cart_items),
+        "items": response
     }
 
 
 
+
+@router.delete("/cart/clear", status_code=status.HTTP_200_OK)
+async def clear_cart(
+    db: db_dependency,
+    userdata: user_dependency
+):
+    user_id = userdata["id"]
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized error")
+
+    cart = db.query(Cart).filter(Cart.user_id == user_id).first()
+    if not cart:
+        raise HTTPException(status_code=404, detail="Cart not found")
+
+    deleted = db.query(CartItem).filter(CartItem.cart_id == cart.id).delete()
+    db.commit()
+
+    return {"message": f"{deleted} item(s) removed from cart"}
