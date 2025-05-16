@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app=FastAPI()
 
-origins=["http://192.168.1.9:5500"]
+origins=["http://192.168.1.9:5500","https://hrjayasuryasingh9.github.io/Alaiy-Pre-Requisites-project-2-/"]
 
 app.add_middleware(
     CORSMiddleware,
