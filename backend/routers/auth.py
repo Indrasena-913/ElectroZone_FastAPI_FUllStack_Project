@@ -106,7 +106,7 @@ async def login_user(userdata:LoginUserStruct,db:db_dependency,req:Request,res:R
             value=refresh_token,
             httponly=True,
             secure=True,
-            samesite="strict",
+            samesite="None",
             max_age=REFRESH_TOKEN_EXPIRES_IN * 24 * 60 * 60
         )
         return {
